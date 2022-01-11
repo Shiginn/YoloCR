@@ -330,7 +330,7 @@ class OCR():
     
 
     @staticmethod
-    def _scale_values(n: int, bitdepth: int) -> int:
+    def _scale_values(n: int, bitdepth: int, src_bitdepth: int = 8) -> int:
         """Scale a value to the correct bitdepth
         
         :param n:           value to scale
@@ -338,7 +338,7 @@ class OCR():
 
         :return:            scaled value
         """
-        return n << (bitdepth - 8)
+        return n << (bitdepth - src_bitdepth)
 
 
     @staticmethod
