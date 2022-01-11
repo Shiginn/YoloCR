@@ -70,7 +70,7 @@ class OCR():
         self.rect_size = rect_size
 
 
-    def extract_frames(self):
+    def extract_frames(self) -> None:
         """Extract the subtitles in images"""
 
         self._write_frames(self._cleaning(self._crop(self.clip, self.coords)))
@@ -80,7 +80,7 @@ class OCR():
 
 
 
-    def write_subs(self, lang: str):
+    def write_subs(self, lang: str) -> None:
         """Write the ASS file from the extracted frames"""
 
         if lang not in pytesseract.get_languages():
@@ -144,6 +144,7 @@ class OCR():
             txt = core.std.Expr(core.std.SplitPlanes(txt), "x y max z max")
 
         return txt.std.Minimum().std.Maximum()
+
 
     @staticmethod
     def _ocr_line(file: str, lang: str) -> str:
@@ -240,7 +241,7 @@ class OCR():
 
             frame = clip[start_f].imwri.Write(
                 imgformat="PNG",
-                filename=path#f"filtered_images/{start_f}_{end_f+1}{'_alt' if alt else ''}_%01d.png"
+                filename=path
             )
             
             self._output_to_devnull(frame, y4m=False)
@@ -342,7 +343,7 @@ class OCR():
 
 
     @staticmethod
-    def _get_path(start: int, end: int, fps: Fraction, alt: bool = False):
+    def _get_path(start: int, end: int, fps: Fraction, alt: bool = False) -> str:
         start = Convert.f2assts(start, fps).replace(":", "-")
         end = Convert.f2assts(end, fps).replace(":", "-")
 
@@ -350,7 +351,7 @@ class OCR():
     
 
     @staticmethod
-    def _output_to_devnull(clip: vs.VideoNode, y4m: bool, progress_update: Optional[Callable] = None):
+    def _output_to_devnull(clip: vs.VideoNode, y4m: bool, progress_update: Optional[Callable] = None) -> None:
         """Output a clip to devnull.
         
         :param clip:                Clip to output.
@@ -364,7 +365,7 @@ class OCR():
     
 
     @staticmethod
-    def _get_sub_headers(width: int, height: int):
+    def _get_sub_headers(width: int, height: int) -> str:
         return f"""[Script Info]
 ScriptType: v4.00+
 WrapStyle: 0
