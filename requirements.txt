@@ -1,0 +1,3 @@
+pytimeconv>=0.0.2
+VapourSynth>=57
+pytesseract>=0.3.8

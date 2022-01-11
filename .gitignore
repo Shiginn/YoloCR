@@ -1,0 +1,11 @@
+__pycache__
+.vspreview
+
+filtered_images
+tesseract_results
+
+*.mkv
+*.ass
+
+YoloCR.sh
+test.py
