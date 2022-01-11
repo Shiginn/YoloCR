@@ -25,7 +25,7 @@ class OCR():
         thr_in: int = 220,
         thr_out: int = 70,
 
-        thr_sc: float = 0.0015,
+        thr_sc_offset: float = 0,
 
         rect_size: int = 8
     ) -> None:
@@ -41,7 +41,7 @@ class OCR():
         
         :param thr_out:             Binarization threshold of the subtitle outline. Higher means less errors will be removed but text might be detected as error. Should not be higher than subtitle outline luminosity.
         
-        :param thr_sc:              Threshold the subtitle timing detection. Lower means more subtitles will be detected but might cause false positive.
+        :param thr_sc_offset:       Offset the subtitle timing detection threshold. This threshold is determined from detection box size and can be offset with this. Threshold is between 0 and 1. Lower means more subtitles will be detected but might cause false positive. Default to 0.0035 when detection box is 1500x200 and go down as detection box size increases.
         
         :param rect_size:           Size of the rectangle used to detect cleaning errors. Higher means more errors will be removed but might detect text as error.
 
@@ -60,7 +60,7 @@ class OCR():
         self.thr_in = self._scale_values(thr_in, self.clip.format.bits_per_sample)
         self.thr_out = self._scale_values(thr_out, self.clip.format.bits_per_sample)
 
-        self.thr_sc = thr_sc
+        self.thr_sc_offset = thr_sc_offset
 
         self.coords = self._convert_coords(self.clip, coords)
         self.coords_alt = self._convert_coords(self.clip, coords_alt, True) if coords_alt else None
@@ -195,7 +195,7 @@ class OCR():
 
     def _write_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
         """Write images with subtitles from processed clip
-        
+
         :param clip:        processed clip to extract frames from
         :param alt:         use alt coords
         """
@@ -206,10 +206,12 @@ class OCR():
                 self.results.insert(-1, n)
             return clip
 
+        thr_sc = 0.0035 * (300000/(clip.width * clip.height)) + self.thr_sc_offset
+
         ocr = core.std.FrameEval(
             clip,
             partial(_get_frame_ranges, clip=clip),
-            prop_src=clip.misc.SCDetect(self.thr_sc)
+            prop_src=clip.misc.SCDetect(thr_sc)
         )
 
         print(f"Detecting subtitles in {'main' if not alt else 'alt'} clip")
