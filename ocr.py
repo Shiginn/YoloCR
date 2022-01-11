@@ -8,7 +8,7 @@ from functools import partial
 from pytimeconv import Convert
 
 from fractions import Fraction
-from typing import Callable, Tuple, Union, Optional, List
+from typing import Callable, Tuple, Optional, List
 
 core = vs.core
 
@@ -22,8 +22,8 @@ class OCR():
         coords: Tuple[int, int, int],
         coords_alt: Optional[Tuple[int, int, int]] = None,
         
-        thr_in: Union[int, Tuple[int, int, int]] = 220,
-        thr_out: Union[int, Tuple[int, int, int]] = 70,
+        thr_in: int = 220,
+        thr_out: int = 70,
 
         thr_sc: float = 0.0015,
 
@@ -46,21 +46,19 @@ class OCR():
         :param rect_size:           Size of the rectangle used to detect cleaning errors. Higher means more errors will be removed but might detect text as error.
 
         """
-
         self.clip = clip_hardsub
 
-        thr_in = [thr_in] if isinstance(thr_in, int) else thr_in
-        thr_out = [thr_out] if isinstance(thr_out, int) else thr_out
-
-
-        if len(thr_in) != len(thr_out):
-            raise ValueError("Both thr must have the same number of values")
-
-        if len(thr_in) == 1:
+        if clip_hardsub.format.color_family == vs.RGB:
+            raise ValueError("Input clip must be GRAY or YUV.")
+        
+        if clip_hardsub.format.num_planes > 1:
             self.clip, *_ = core.std.SplitPlanes(clip_hardsub)
         
-        self.thr_in = [self._scale_values(x, self.clip.format.bits_per_sample) for x in thr_in]
-        self.thr_out = [self._scale_values(x, self.clip.format.bits_per_sample) for x in thr_out]
+        if not (isinstance(thr_in, int) or isinstance(thr_out, int)):
+            raise ValueError("Binarization threshold must be integers.")
+
+        self.thr_in = self._scale_values(thr_in, self.clip.format.bits_per_sample)
+        self.thr_out = self._scale_values(thr_out, self.clip.format.bits_per_sample)
 
         self.thr_sc = thr_sc
 
@@ -77,7 +75,6 @@ class OCR():
 
         if self.coords_alt:
             self._write_frames(self._cleaning(self._crop(self.clip, self.coords_alt)), alt=True)
-
 
 
     def write_subs(self, lang: str) -> None:
@@ -116,10 +113,10 @@ class OCR():
         bnz_in = core.std.Binarize(clip, self.thr_in)
         bnz_out = core.std.Binarize(clip, self.thr_out)
 
-        blank_clip = core.std.BlankClip(clip,
+        blank_clip = core.std.BlankClip(bnz_in,
             width=clip.width - self.rect_size * 2,
             height=clip.height - self.rect_size * 2,
-            color=[0] * clip.format.num_planes
+            color=0
         )
 
         rect = core.std.AddBorders(blank_clip,
@@ -127,7 +124,7 @@ class OCR():
             right=self.rect_size,
             top=self.rect_size,
             bottom=self.rect_size,
-            color = [self._scale_values(255, clip.format.bits_per_sample)] * clip.format.num_planes
+            color = self._scale_values(255, clip.format.bits_per_sample)
         )
 
         overlap = core.std.Expr([rect, bnz_out], "x y min")
@@ -135,15 +132,12 @@ class OCR():
         ocr_issues = core.misc.Hysteresis(overlap, bnz_out).std.Invert()
 
         txt = core.std.MaskedMerge(
-            core.std.BlankClip(clip),
+            core.std.BlankClip(bnz_in),
             bnz_in,
             ocr_issues
         )
 
-        if clip.format.num_planes == 3:
-            txt = core.std.Expr(core.std.SplitPlanes(txt), "x y max z max")
-
-        return txt.std.Minimum().std.Maximum()
+        return txt.std.Maximum().std.Minimum().std.Minimum().std.Maximum()
 
 
     @staticmethod
