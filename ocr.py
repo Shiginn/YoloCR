@@ -29,22 +29,33 @@ class OCR():
 
         rect_size: int = 8
     ) -> None:
-        
         """
         :param clip_hardsub:        Hardsubbed clip to OCR.
-        
-        :param coords:              Postion of the detection box (width, height, vertical margin from the bottom).
-        
-        :param coords_alt:          Postion of the alt detection box (width, height, vertical margin from the top). Will increase processing time.
-        
-        :param thr_in:              Binarization threshold of the subtitle text. Higher means less errors but text might not be detected. Should not be lower than subtitle text luminosity
-        
-        :param thr_out:             Binarization threshold of the subtitle outline. Higher means less errors will be removed but text might be detected as error. Should not be higher than subtitle outline luminosity.
-        
-        :param thr_sc_offset:       Offset the subtitle timing detection threshold. This threshold is determined from detection box size and can be offset with this. Threshold is between 0 and 1. Lower means more subtitles will be detected but might cause false positive. Default to 0.0035 when detection box is 1500x200 and go down as detection box size increases.
-        
-        :param rect_size:           Size of the rectangle used to detect cleaning errors. Higher means more errors will be removed but might detect text as error.
 
+        :param coords:              Postion of the bottom detection box (width, height, vertical margin from the bottom).
+
+        :param coords_alt:          Postion of the top detection box (width, height, vertical margin from the top). 
+                                    Will increase processing time.
+
+        :param thr_in:              Binarization threshold of the subtitle inline. 
+                                    Higher means less errors but text might not be detected.
+                                    Should not be higher than subtitle text luminosity.
+                                    Defaults to 220 and ranges from 0 to 255 (will be scale if clip is not 8-bits)
+
+        :param thr_out:             Binarization threshold of the subtitle outline. 
+                                    Lower means more errors will be removed but text might be detected as error.
+                                    Should not be lower than subtitle outline luminosity.
+                                    Defaults to 70 and ranges from 0 to 255 (will be scale if clip is not 8-bits)
+
+        :param thr_sc_offset:       Offset the threshold of the subtitle timing detection. 
+                                    This threshold is determined based on detection box size and can be offset with this.
+                                    Lower means more subtitles will be detected but might cause false positive.
+                                    Defaults to 0.0035 when detection box is 1500x200 and go down as detection box size increases.
+                                    Threshold is between 0 and 1.
+
+        :param rect_size:           Size of the rectangle used to detect cleaning errors. 
+                                    Higher means more errors will be removed but might detect text as error.
+                                    Defaults to 8.
         """
         self.clip = clip_hardsub
 
