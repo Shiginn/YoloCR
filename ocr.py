@@ -162,14 +162,15 @@ class OCR():
         """
         tesseract_hocr = pytesseract.image_to_pdf_or_hocr(f"filtered_images/{file}", lang, config="--oem 0 --psm 6", extension="hocr")
 
-        hocr = html.unescape(tesseract_hocr.decode("utf8"))
-        hocr = hocr.replace("<em>", "{\\i1}").replace("</em>", "{\\i0}")
+        hocr = tesseract_hocr.decode("utf8").replace("<em>", "{\\i1}").replace("</em>", "{\\i0}")
 
         raw = "".join(
             list(ET.fromstring(hocr).itertext())
         ).replace("{\\i1} {\\i0}", "").strip()
 
-        one_line = re.sub(r"\n{1} +", " ", raw)
+        unescape = html.unescape(raw)
+
+        one_line = re.sub(r"\n{1} +", " ", unescape)
 
         merge_italics = re.sub(
             r"{\\i0}\W+{\\i1}",
