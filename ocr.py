@@ -115,7 +115,7 @@ class OCR():
 
         with Pool(cpu_count()-1) as p:
             lines = p.map(
-                partial(self._ocr_line, lang=lang), file_to_process
+                partial(self._ocr_image, lang=lang), file_to_process
             )
 
         with open("subs.ass", "a", encoding="utf8") as sub_file:
@@ -160,7 +160,7 @@ class OCR():
 
 
     @staticmethod
-    def _ocr_line(file: str, lang: str) -> str:
+    def _ocr_image(file: str, lang: str) -> str:
         """OCR a single image and returns the result in ASS format
         
         :param file:        Path to the image to process (format must be : <start timestamp>_<end_timestamp><_alt (optional)>.ext).
@@ -168,27 +168,26 @@ class OCR():
 
         :returns:           OCR'd text in ASS format.
         """
-        tesseract_hocr = pytesseract.image_to_pdf_or_hocr(f"filtered_images/{file}", lang, config="--oem 0 --psm 6", extension="hocr")
+        tesseract_hocr: bytes = pytesseract.image_to_pdf_or_hocr(f"filtered_images/{file}", lang, config="--oem 0 --psm 6", extension="hocr")
+        txt = tesseract_hocr.decode("utf8")
 
-        hocr = tesseract_hocr.decode("utf8").replace("<em>", "{\\i1}").replace("</em>", "{\\i0}")
-
-        raw = "".join(
-            list(ET.fromstring(hocr).itertext())
-        ).replace("{\\i1} {\\i0}", "").strip()
-
-        unescape = html.unescape(raw)
-
-        one_line = re.sub(r"\n{1} +", " ", unescape)
-
-        merge_italics = re.sub(
-            r"{\\i0}\W+{\\i1}",
+        txt = txt.replace("<em>", "{\\i1}") \
+                 .replace("</em>", "{\\i0}")        # replace html italics with ASS italics
+        
+        txt = "".join(
+            list(ET.fromstring(txt).itertext())     # extract text from xml
+        ).replace("{\\i1} {\\i0}", "").strip()      # remove whitespaces before/after text
+        
+        txt = html.unescape(txt)                    # unescape html caracters
+        txt = re.sub(r"\n{1} +", " ", txt)          # convert 1 line break into whitespace
+        txt = re.sub(r" {2,}", r" \\N", txt)        # convert 2+ line break into one ASS linebreak
+        txt = re.sub(                               # remove redundant italic tags
+            r"{\\i0}(\W+|\\N){\\i1}",
             lambda x: x.group()[5:-5],
-            one_line
+            txt
         )
 
-        linebreak = re.sub(r" {2,}", r"\\N", merge_italics)
-
-        corrections = [
+        corrections: List[Tuple[str, str]] = [
             ("’", "'"), ("‘", "'"), (" '", "'"), ("!'", "l'"), ("I'", "l'"),
             ("_", "-"), ('—', '-'), ("...", "…"),
             ("<<", "«"), (">>", "»"), ("« ", "\""), (" »", "\""),
@@ -196,21 +195,21 @@ class OCR():
         ]
 
         for correction in corrections:
-            linebreak = linebreak.replace(*correction)
+            txt = txt.replace(*correction)
 
-
+        # add \an8 tag for alt track
         if "_alt" in file:
-            if linebreak.startswith("{"):
-                linebreak = linebreak[:1] + r"\an8" + linebreak[1:]
+            if txt.startswith("{"):
+                txt = txt[:1] + r"\an8" + txt[1:]
             else:
-                linebreak = r"{\an8}" + linebreak
+                txt = r"{\an8}" + txt
         
         start_ts, end_ts, *_ = file.split("_")
         
         start_ts = start_ts.replace("-", ":")
         end_ts = end_ts.replace("-", ":")
 
-        return f'Dialogue: 10,{start_ts},{end_ts},Default,,0,0,0,,{linebreak}'
+        return f'Dialogue: 10,{start_ts},{end_ts},Default,,0,0,0,,{txt}'
 
 
     def _write_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
