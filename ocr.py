@@ -109,16 +109,15 @@ class OCR():
         print("OCRing images...")
 
         file_to_process = os.listdir("filtered_images")
-
-        with open("subs.ass", "w") as sub_file:
-            sub_file.write(self._get_sub_headers(self.clip.width, self.clip.height))
+        file_to_process = [file for file in file_to_process if file.endswith("_yolocr.png")]
 
         with Pool(cpu_count()-1) as p:
             lines = p.map(
                 partial(self._ocr_image, lang=lang), file_to_process
             )
 
-        with open("subs.ass", "a", encoding="utf8") as sub_file:
+        with open("subs.ass", "w", encoding="utf8") as sub_file:
+            sub_file.write(self._get_sub_headers(self.clip.width, self.clip.height))
             sub_file.write("\n".join(sorted(lines)))
 
 
