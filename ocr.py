@@ -182,7 +182,7 @@ class OCR():
         txt = re.sub(r"\n{1} +", " ", txt)          # convert 1 line break into whitespace
         txt = re.sub(r" {2,}", r" \\N", txt)        # convert 2+ line break into one ASS linebreak
         txt = re.sub(                               # remove redundant italic tags
-            r"{\\i0}(\W+|\\N){\\i1}",
+            r"{\\i0}(\W+| \\N){\\i1}",
             lambda x: x.group()[5:-5],
             txt
         )
@@ -192,6 +192,7 @@ class OCR():
             ("_", "-"), ('—', '-'), ("...", "…"),
             ("<<", "«"), (">>", "»"), ("« ", "\""), (" »", "\""),
             ('II', 'Il'), ("iI", "il"),
+            ("{\\i1}-{\\i0}", "-")
         ]
 
         for correction in corrections:
@@ -364,7 +365,7 @@ class OCR():
         start = Convert.f2assts(start_frame, fps).replace(":", "-")
         end = Convert.f2assts(end_frame, fps).replace(":", "-")
 
-        return f"{os.getcwd()}/filtered_images/{start}_{end}{'_alt' if alt else ''}_%01d.png"
+        return f"{os.getcwd()}/filtered_images/{start}_{end}{'_alt' if alt else ''}_%01d_yolocr.png"
     
 
     @staticmethod
