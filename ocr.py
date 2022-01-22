@@ -234,7 +234,7 @@ class OCR():
         )
 
         print(f"Detecting subtitles in {'main' if not alt else 'alt'} clip")
-        self._output_to_devnull(ocr, True, lambda x, y : print(f"{x}/{y}", end="\r"))
+        self._output_to_devnull(ocr, True, lambda x, y : print("%d/%d [%.1f%%]" % (x, y, x/y * 100), end="\r"))
 
 
         scene_changes = sorted(scene_changes)
