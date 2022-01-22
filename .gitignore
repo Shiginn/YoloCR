@@ -1,5 +1,6 @@
 __pycache__
 .vspreview
+.mypy_cache
 
 filtered_images
 tesseract_results

@@ -6,6 +6,7 @@ import vapoursynth as vs
 import xml.etree.ElementTree as ET
 from functools import partial
 from pytimeconv import Convert
+from multiprocessing import Pool, cpu_count
 
 from fractions import Fraction
 from typing import Callable, Tuple, Optional, List
@@ -59,11 +60,14 @@ class OCR():
         """
         self.clip = clip_hardsub
 
-        if clip_hardsub.format.color_family == vs.RGB:
+        if self.clip.format is None:
+            raise ValueError("Variable format clip are not supported.")
+
+        if self.clip.format.color_family not in [vs.GRAY, vs.YUV]:
             raise ValueError("Input clip must be GRAY or YUV.")
         
-        if clip_hardsub.format.num_planes > 1:
-            self.clip, *_ = core.std.SplitPlanes(clip_hardsub)
+        if self.clip.format.num_planes > 1:
+            self.clip, *_ = core.std.SplitPlanes(self.clip)
         
         if not (isinstance(thr_in, int) or isinstance(thr_out, int)):
             raise ValueError("Binarization threshold must be integers.")
@@ -80,7 +84,7 @@ class OCR():
 
 
     def extract_frames(self) -> None:
-        """Extract the subtitles in images"""
+        """Extract the subtitles into images ready for OCR"""
 
         self._write_frames(self._cleaning(self._crop(self.clip, self.coords)))
 
@@ -89,7 +93,10 @@ class OCR():
 
 
     def write_subs(self, lang: str) -> None:
-        """Write the ASS file from the extracted frames"""
+        """Write the ASS file from the extracted frames
+        
+        :param lang:        Language of the input subtitles.
+        """
 
         if lang not in pytesseract.get_languages():
             raise ValueError(f"Language '{lang}' is not installed")
@@ -102,7 +109,6 @@ class OCR():
         print("OCRing images...")
 
         file_to_process = os.listdir("filtered_images")
-        from multiprocessing import Pool, cpu_count
 
         with open("subs.ass", "w") as sub_file:
             sub_file.write(self._get_sub_headers(self.clip.width, self.clip.height))
@@ -117,9 +123,11 @@ class OCR():
 
 
     def _cleaning(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """Prepares the clip for the OCR by removing everything that is not subtitles
+        """Prepares the clip for the OCR by removing everything that is not subtitles.
         
-        :param clip:        clip to process
+        :param clip:        Clip to process.
+
+        :returns:           Cleaned clip.
         """
         bnz_in = core.std.Binarize(clip, self.thr_in)
         bnz_out = core.std.Binarize(clip, self.thr_out)
@@ -155,10 +163,10 @@ class OCR():
     def _ocr_line(file: str, lang: str) -> str:
         """OCR a single image and returns the result in ASS format
         
-        :param file:        path to the image to process
-        :param lang:        language of the text to OCR
+        :param file:        Path to the image to process (format must be : <start timestamp>_<end_timestamp><_alt (optional)>.ext).
+        :param lang:        Language of the input text.
 
-        :returns:           OCR'd text in ASS format
+        :returns:           OCR'd text in ASS format.
         """
         tesseract_hocr = pytesseract.image_to_pdf_or_hocr(f"filtered_images/{file}", lang, config="--oem 0 --psm 6", extension="hocr")
 
@@ -208,14 +216,14 @@ class OCR():
     def _write_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
         """Write images with subtitles from processed clip
 
-        :param clip:        processed clip to extract frames from
-        :param alt:         use alt coords
+        :param clip:        Cleaned clip to extract frames from.
+        :param alt:         Whether or not to use alt coords. Defaults to False
         """
-        self.results: List[int] = [0, clip.num_frames - 1]
+        scene_changes = [0, clip.num_frames - 1]
 
         def _get_frame_ranges(n: int, f: vs.VideoFrame, clip: vs.VideoNode) -> vs.VideoNode:
             if f.props["_SceneChangePrev"] == 1 or f.props["_SceneChangeNext"] == 1:
-                self.results.insert(-1, n)
+                scene_changes.insert(-1, n)
             return clip
 
         thr_sc = 0.0035 * (300000/(clip.width * clip.height)) + self.thr_sc_offset
@@ -230,8 +238,8 @@ class OCR():
         self._output_to_devnull(ocr, True, lambda x, y : print(f"{x}/{y}", end="\r"))
 
 
-        self.results = sorted(self.results)
-        self.results = [(self.results[i], self.results[i+1]) for i in range(0, len(self.results)-1, 2)][1::2]
+        scene_changes = sorted(scene_changes)
+        self.results = [(scene_changes[i], scene_changes[i+1]) for i in range(0, len(scene_changes)-1, 2)][1::2]
 
         try:
             os.mkdir("filtered_images")
@@ -277,10 +285,12 @@ class OCR():
             top = self._crop(self.clip, self.coords_alt)
             bottom = self._crop(self.clip, self.coords)
 
+            diff = (int((top.width - bottom.width)/2), int((top.width - bottom.width)/2))
+
             if top.width > bottom.width:
-                bottom = bottom.std.AddBorders((top.width - bottom.width)/2, (top.width - bottom.width)/2)
+                bottom = bottom.std.AddBorders(*diff)
             elif top.width < bottom.width:
-                top = top.std.AddBorders((top.width - bottom.width)/2, (top.width - bottom.width)/2)
+                top = top.std.AddBorders(*diff)
 
             return core.std.StackVertical([top, bottom])
 
@@ -294,9 +304,9 @@ class OCR():
     def _zone_mask(self, coords: Tuple[int, int, int, int]) -> vs.VideoNode:
         """Generates rectangular mask of the zone to OCR
         
-        :param coords:      amount of pixel to crop for each side
+        :param coords:      Amount of pixel to crop for each side.
 
-        :return:            mask of the zone
+        :return:            Mask of the zone.
         """
         
         left, right, top, bottom = coords
@@ -311,9 +321,9 @@ class OCR():
     def _crop(clip: vs.VideoNode, coords: Tuple[int, int, int, int]) -> vs.VideoNode:
         """Crop a clip to the input coords
         
-        :param coords:      amount of pixel to crop for each side 
+        :param coords:      Amount of pixel to crop for each side.
 
-        :return:            croped clip
+        :return:            Cropped clip.
         """
 
         left, right, top, bottom = coords
@@ -351,9 +361,9 @@ class OCR():
 
 
     @staticmethod
-    def _get_path(start: int, end: int, fps: Fraction, alt: bool = False) -> str:
-        start = Convert.f2assts(start, fps).replace(":", "-")
-        end = Convert.f2assts(end, fps).replace(":", "-")
+    def _get_path(start_frame: int, end_frame: int, fps: Fraction, alt: bool = False) -> str:
+        start = Convert.f2assts(start_frame, fps).replace(":", "-")
+        end = Convert.f2assts(end_frame, fps).replace(":", "-")
 
         return f"{os.getcwd()}/filtered_images/{start}_{end}{'_alt' if alt else ''}_%01d.png"
     
@@ -363,10 +373,10 @@ class OCR():
         """Output a clip to devnull.
         
         :param clip:                Clip to output.
-        :param y4m:                 Output in y4m.
-        :clip progress_update:      Progress updage function.
 
-        :returns:
+        :param y4m:                 Output in y4m.
+
+        :param progress_update:     Progress updage function.
         """
         with open(os.devnull, "wb") as devnull:
             clip.output(devnull, y4m, progress_update)
@@ -374,6 +384,14 @@ class OCR():
 
     @staticmethod
     def _get_sub_headers(width: int, height: int) -> str:
+        """Generate ASS headers with custom resolution.
+        
+        :param width:       Width of the source video.
+        :param height:      Height of the source video.
+
+        :returns:           ASS headers.
+        """
+
         return f"""[Script Info]
 ScriptType: v4.00+
 WrapStyle: 0
