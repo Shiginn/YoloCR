@@ -236,9 +236,8 @@ class OCR():
         print(f"Detecting subtitles in {'main' if not alt else 'alt'} clip")
         self._output_to_devnull(ocr, True, lambda x, y : print("%d/%d [%.1f%%]" % (x, y, x/y * 100), end="\r"))
 
-
         scene_changes = sorted(scene_changes)
-        self.results = [(scene_changes[i], scene_changes[i+1]) for i in range(0, len(scene_changes)-1, 2)][1::2]
+        txt_scenes = [(scene_changes[i], scene_changes[i+1]) for i in range(0, len(scene_changes)-1, 2)][1::2]
 
         try:
             os.mkdir("filtered_images")
@@ -248,8 +247,12 @@ class OCR():
         print("\nWriting image files")
         clip = core.std.Invert(clip)
 
-        for (start_f, end_f) in self.results:
-            path = self._get_path(start_f, end_f+1, clip.fps_num/clip.fps_den, alt)
+        for (start_f, end_f) in txt_scenes:
+            # using frame number in path and converting to timestamp in _ocr_image somehow creates a memory leak
+            start_ts = Convert.f2assts(start_f, clip.fps_num/clip.fps_den).replace(":", "-")
+            end_ts = Convert.f2assts(end_f+1, clip.fps_num/clip.fps_den).replace(":", "-")
+
+            path = f"{os.getcwd()}/filtered_images/{start_ts}_{end_ts}{'_alt' if alt else ''}_%01d_yolocr.png"
 
             if os.path.isfile(path):
                 os.remove(path)
@@ -360,15 +363,7 @@ class OCR():
 
 
     @staticmethod
-    def _get_path(start_frame: int, end_frame: int, fps: Fraction, alt: bool = False) -> str:
-        start = Convert.f2assts(start_frame, fps).replace(":", "-")
-        end = Convert.f2assts(end_frame, fps).replace(":", "-")
-
-        return f"{os.getcwd()}/filtered_images/{start}_{end}{'_alt' if alt else ''}_%01d_yolocr.png"
-    
-
-    @staticmethod
-    def _output_to_devnull(clip: vs.VideoNode, y4m: bool, progress_update: Optional[Callable] = None) -> None:
+    def _output_to_devnull(clip: vs.VideoNode, y4m: bool, progress_update: Optional[Callable[[int, int], None]] = None) -> None:
         """Output a clip to devnull.
         
         :param clip:                Clip to output.
