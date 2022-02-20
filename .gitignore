@@ -3,10 +3,10 @@ __pycache__
 .mypy_cache
 
 filtered_images
-tesseract_results
 
 *.mkv
 *.ass
+*.ffindex
 
 YoloCR.sh
 test.py
