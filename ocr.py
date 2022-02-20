@@ -109,7 +109,7 @@ class OCR():
 
         with Pool(cpu_count()) as p:
             lines = p.map(
-                partial(self._ocr_image, lang=lang), file_to_process
+                partial(self._ocr_image, lang=lang, fps=Fraction(self.clip.fps_num, self.clip.fps_den)), file_to_process
             )
 
         with open("subs.ass", "w", encoding="utf8") as sub_file:
@@ -157,7 +157,7 @@ class OCR():
 
 
     @staticmethod
-    def _ocr_image(file: str, lang: str) -> str:
+    def _ocr_image(file: str, lang: str, fps: Fraction) -> str:
         """OCR a single image and returns the result in ASS format
 
         :param file:        Path to the image to process (format must be : <start timestamp>_<end_timestamp><_alt (optional)>.ext).
@@ -202,10 +202,10 @@ class OCR():
             else:
                 txt = r"{\an8}" + txt
 
-        start_ts, end_ts, *_ = file.split("_")
+        start_f, end_f, *_ = file.split("_")
 
-        start_ts = start_ts.replace("-", ":")
-        end_ts = end_ts.replace("-", ":")
+        start_ts = Convert.f2assts(int(start_f), fps)
+        end_ts = Convert.f2assts(int(end_f) + 1, fps)
 
         return f'Dialogue: 10,{start_ts},{end_ts},Default,,0,0,0,,{txt}'
 
@@ -246,11 +246,7 @@ class OCR():
         clip = core.std.Invert(clip)
 
         for (start_f, end_f) in txt_scenes:
-            # using frame number in path and converting to timestamp in _ocr_image somehow creates a memory leak
-            start_ts = Convert.f2assts(start_f, Fraction(clip.fps_num, clip.fps_den)).replace(":", "-")
-            end_ts = Convert.f2assts(end_f + 1, Fraction(clip.fps_num, clip.fps_den)).replace(":", "-")
-
-            path = f"{os.getcwd()}/filtered_images/{start_ts}_{end_ts}{'_alt' if alt else ''}_%01d_ocr.png"
+            path = f"{os.getcwd()}/filtered_images/{start_f}_{end_f}{'_alt' if alt else ''}_%01d_ocr.png"
 
             if os.path.isfile(path):
                 os.remove(path)
