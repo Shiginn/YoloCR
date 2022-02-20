@@ -102,11 +102,6 @@ class OCR():
         if lang not in pytesseract.get_languages():
             raise ValueError(f"Language '{lang}' is not installed")
 
-        try:
-            os.mkdir("tesseract_results")
-        except FileExistsError:
-            pass
-
         print("OCRing images...")
 
         file_to_process = os.listdir("filtered_images")
