@@ -2,8 +2,11 @@ import os
 import re
 import html
 import pytesseract
+import numpy as np
 import vapoursynth as vs
 import xml.etree.ElementTree as ET
+from PIL import Image
+from shutil import rmtree
 from functools import partial
 from pytimeconv import Convert
 from multiprocessing import Pool, cpu_count
@@ -87,10 +90,16 @@ class OCR():
     def extract_frames(self) -> None:
         """Extract the subtitles into images ready for OCR"""
 
-        self._write_frames(self._cleaning(self._crop(self.clip, self.coords)))
+        try:
+            os.mkdir("filtered_images")
+        except FileExistsError:
+            rmtree("filtered_images")
+            os.mkdir("filtered_images")
+
+        self._write_sub_frames(self._cleaning(self._crop(self.clip, self.coords)))
 
         if self.coords_alt:
-            self._write_frames(self._cleaning(self._crop(self.clip, self.coords_alt)), alt=True)
+            self._write_sub_frames(self._cleaning(self._crop(self.clip, self.coords_alt)), alt=True)
 
 
     def write_subs(self, lang: str) -> None:
@@ -210,7 +219,7 @@ class OCR():
         return f'Dialogue: 10,{start_ts},{end_ts},Default,,0,0,0,,{txt}'
 
 
-    def _write_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
+    def _write_sub_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
         """Write images with subtitles from processed clip
 
         :param clip:        Cleaned clip to extract frames from.
@@ -237,26 +246,17 @@ class OCR():
         scene_changes = sorted(scene_changes)
         txt_scenes = [(scene_changes[i], scene_changes[i + 1]) for i in range(0, len(scene_changes) - 1, 2)][1::2]
 
-        try:
-            os.mkdir("filtered_images")
-        except FileExistsError:
-            pass
-
         print("\nWriting image files")
-        clip = core.std.Invert(clip)
+
+        clip = core.std.Invert(clip).resize.Bicubic(format=vs.RGB24, matrix_in=1)
 
         for (start_f, end_f) in txt_scenes:
             path = f"{os.getcwd()}/filtered_images/{start_f}_{end_f}{'_alt' if alt else ''}_%01d_ocr.png"
 
-            if os.path.isfile(path):
-                os.remove(path)
-
-            frame = clip[start_f].imwri.Write(
-                imgformat="PNG",
-                filename=path
-            )
-
-            self._output_to_devnull(frame, y4m=False)
+            with clip.get_frame(start_f) as f:
+                f_array = np.dstack(f)
+                img = Image.fromarray(f_array, mode="RGB")
+                img.save(path)
 
 
     @property
