@@ -1,3 +1,5 @@
+numpy>=1.22.3
+Pillow>=9.0.1
+pytesseract>=0.3.8
 pytimeconv>=0.0.2
 VapourSynth>=57
-pytesseract>=0.3.8
