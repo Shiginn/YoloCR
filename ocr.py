@@ -7,9 +7,9 @@ import numpy as np
 import pytesseract
 import vapoursynth as vs
 
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from fractions import Fraction
-from multiprocessing import Pool, cpu_count
 from shutil import rmtree
 from typing import Tuple, Optional, List
 
@@ -119,10 +119,16 @@ class OCR():
         file_to_process = os.listdir("filtered_images")
         file_to_process = [file for file in file_to_process if file.endswith("_ocr.png")]
 
-        with Pool(cpu_count()) as p:
-            lines = p.map(
-                partial(self._ocr_image, lang=lang, fps=Fraction(self.clip.fps_num, self.clip.fps_den)), file_to_process
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            lines = executor.map(
+                partial(
+                    self._ocr_image,
+                    lang=lang,
+                    fps=Fraction(self.clip.fps_num, self.clip.fps_den)
+                ), file_to_process
             )
+
+        print("Writing ASS file...")
 
         with open("subs.ass", "w", encoding="utf8") as sub_file:
             sub_file.write(self._get_sub_headers(self.clip.width, self.clip.height))
@@ -189,7 +195,7 @@ class OCR():
             prop_src=clip.misc.SCDetect(thr_sc)
         )
 
-        print(f"Finding subtitles in {'main' if not alt else 'alt'} clip")
+        print(f"Finding subtitles in {'main' if not alt else 'alt'} clip...")
 
         with open(os.devnull, "wb") as devnull:
             ocr.output(
@@ -200,7 +206,7 @@ class OCR():
         scene_changes = sorted(scene_changes)
         txt_scenes = [(scene_changes[i], scene_changes[i + 1]) for i in range(0, len(scene_changes) - 1, 2)][1::2]
 
-        print("\nWriting image files")
+        print("\nWriting image files...\n")
 
         clip = core.std.Invert(clip).resize.Bicubic(format=vs.RGB24, matrix_in=1)
 
