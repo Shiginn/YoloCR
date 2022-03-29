@@ -1,37 +1,35 @@
+import html
 import os
 import re
-import html
-import pytesseract
-import numpy as np
-import vapoursynth as vs
 import xml.etree.ElementTree as ET
-from PIL import Image
-from shutil import rmtree
-from functools import partial
-from pytimeconv import Convert
-from multiprocessing import Pool, cpu_count
 
+import numpy as np
+import pytesseract
+import vapoursynth as vs
+
+from functools import partial
 from fractions import Fraction
-from typing import Callable, Tuple, Optional, List
+from multiprocessing import Pool, cpu_count
+from shutil import rmtree
+from typing import Tuple, Optional, List
+
+from PIL import Image
+from pytimeconv import Convert
 
 core = vs.core
 
 
 class OCR():
     """OCR Class"""
+
     def __init__(
         self,
-
         clip_hardsub: vs.VideoNode,
-
         coords: Tuple[int, int, int],
         coords_alt: Optional[Tuple[int, int, int]] = None,
-
         thr_in: int = 220,
         thr_out: int = 70,
-
         thr_sc_offset: float = 0,
-
         rect_size: int = 8
     ) -> None:
         """
@@ -45,17 +43,17 @@ class OCR():
         :param thr_in:              Binarization threshold of the subtitle inline.
                                     Higher means less errors but text might not be detected.
                                     Should not be higher than subtitle text luminosity.
-                                    Defaults to 220 and ranges from 0 to 255 (will be scale if clip is not 8-bits)
+                                    Defaults to 220 and ranges from 0 to 255 (will be scaled if clip is not 8-bits)
 
         :param thr_out:             Binarization threshold of the subtitle outline.
                                     Lower means more errors will be removed but text might be detected as error.
                                     Should not be lower than subtitle outline luminosity.
-                                    Defaults to 70 and ranges from 0 to 255 (will be scale if clip is not 8-bits)
+                                    Defaults to 70 and ranges from 0 to 255 (will be scaled if clip is not 8-bits)
 
         :param thr_sc_offset:       Offset the threshold of the subtitle timing detection.
-                                    This threshold is determined based on detection box size and can be offset with this.
+                                    This threshold is determined based on detection box size and can be offset with this setting.
                                     Lower means more subtitles will be detected but might cause false positive.
-                                    Defaults to 0.0035 when detection box is 1500x200 and go down as detection box size increases.
+                                    Defaults threshold is 0.0035 when detection box is 1500x200 and goes down as detection box size increases.
                                     Threshold is between 0 and 1.
 
         :param rect_size:           Size of the rectangle used to detect cleaning errors.
@@ -70,11 +68,11 @@ class OCR():
         if self.clip.format.color_family not in [vs.GRAY, vs.YUV]:
             raise ValueError("Input clip must be GRAY or YUV.")
 
+        if not (isinstance(thr_in, int) and isinstance(thr_out, int)):
+            raise ValueError("Binarization threshold must be integers.")
+
         if self.clip.format.num_planes > 1:
             self.clip, *_ = core.std.SplitPlanes(self.clip)  # type: ignore
-
-        if not (isinstance(thr_in, int) or isinstance(thr_out, int)):
-            raise ValueError("Binarization threshold must be integers.")
 
         self.thr_in = self._scale_values(thr_in, self.clip.format.bits_per_sample)
         self.thr_out = self._scale_values(thr_out, self.clip.format.bits_per_sample)
@@ -96,10 +94,15 @@ class OCR():
             rmtree("filtered_images")
             os.mkdir("filtered_images")
 
-        self._write_sub_frames(self._cleaning(self._crop(self.clip, self.coords)))
+        self._write_sub_frames(
+            self._cleaning(core.std.Crop(self.clip, *self.coords))
+        )
 
         if self.coords_alt:
-            self._write_sub_frames(self._cleaning(self._crop(self.clip, self.coords_alt)), alt=True)
+            self._write_sub_frames(
+                self._cleaning(core.std.Crop(self.clip, *self.coords_alt)),
+                alt=True
+            )
 
 
     def write_subs(self, lang: str) -> None:
@@ -154,15 +157,60 @@ class OCR():
 
         overlap = core.std.Expr([rect, bnz_out], "x y min")
 
-        ocr_issues = core.misc.Hysteresis(overlap, bnz_out).std.Invert()
+        ocr_issues = core.misc.Hysteresis(overlap, bnz_out)
 
         txt = core.std.MaskedMerge(
             core.std.BlankClip(bnz_in),
             bnz_in,
-            ocr_issues
+            ocr_issues.std.Invert()
         )
 
         return txt.std.Maximum().std.Minimum().std.Minimum().std.Maximum()
+
+
+    def _write_sub_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
+        """Write images with subtitles from processed clip
+
+        :param clip:        Cleaned clip to extract frames from.
+        :param alt:         Whether or not to use alt coords. Defaults to False
+        """
+        scene_changes = [0, clip.num_frames - 1]
+
+        thr_sc = 0.0035 * (300000 / (clip.width * clip.height)) + self.thr_sc_offset
+
+        def _get_frame_ranges(n: int, f: vs.VideoFrame, clip: vs.VideoNode) -> vs.VideoNode:
+            if f.props["_SceneChangePrev"] == 1 or f.props["_SceneChangeNext"] == 1:
+                scene_changes.insert(-1, n)
+            return clip
+
+        ocr = core.std.FrameEval(
+            clip,
+            partial(_get_frame_ranges, clip=clip),
+            prop_src=clip.misc.SCDetect(thr_sc)
+        )
+
+        print(f"Finding subtitles in {'main' if not alt else 'alt'} clip")
+
+        with open(os.devnull, "wb") as devnull:
+            ocr.output(
+                devnull,
+                progress_update=lambda x, y: print("%d/%d [%.1f%%]" % (x, y, x / y * 100), end="\r")
+            )
+
+        scene_changes = sorted(scene_changes)
+        txt_scenes = [(scene_changes[i], scene_changes[i + 1]) for i in range(0, len(scene_changes) - 1, 2)][1::2]
+
+        print("\nWriting image files")
+
+        clip = core.std.Invert(clip).resize.Bicubic(format=vs.RGB24, matrix_in=1)
+
+        for (start_f, end_f) in txt_scenes:
+            path = f"{os.getcwd()}/filtered_images/{start_f}_{end_f}{'_alt' if alt else ''}_ocr.png"
+
+            with clip.get_frame(start_f) as f:
+                f_array = np.dstack(f)  # type: ignore
+                img = Image.fromarray(f_array, mode="RGB")
+                img.save(path)
 
 
     @staticmethod
@@ -174,7 +222,13 @@ class OCR():
 
         :returns:           OCR'd text in ASS format.
         """
-        tesseract_hocr: bytes = pytesseract.image_to_pdf_or_hocr(f"filtered_images/{file}", lang, config="--oem 0 --psm 6", extension="hocr")
+        tesseract_hocr: bytes = pytesseract.image_to_pdf_or_hocr(
+            f"filtered_images/{file}",
+            lang,
+            config="--oem 0 --psm 6",
+            extension="hocr"
+        )
+
         txt = tesseract_hocr.decode("utf8")
 
         txt = txt.replace("<em>", "{\\i1}") \
@@ -219,46 +273,6 @@ class OCR():
         return f'Dialogue: 10,{start_ts},{end_ts},Default,,0,0,0,,{txt}'
 
 
-    def _write_sub_frames(self, clip: vs.VideoNode, alt: bool = False) -> None:
-        """Write images with subtitles from processed clip
-
-        :param clip:        Cleaned clip to extract frames from.
-        :param alt:         Whether or not to use alt coords. Defaults to False
-        """
-        scene_changes = [0, clip.num_frames - 1]
-
-        def _get_frame_ranges(n: int, f: vs.VideoFrame, clip: vs.VideoNode) -> vs.VideoNode:
-            if f.props["_SceneChangePrev"] == 1 or f.props["_SceneChangeNext"] == 1:
-                scene_changes.insert(-1, n)
-            return clip
-
-        thr_sc = 0.0035 * (300000 / (clip.width * clip.height)) + self.thr_sc_offset
-
-        ocr = core.std.FrameEval(
-            clip,
-            partial(_get_frame_ranges, clip=clip),
-            prop_src=clip.misc.SCDetect(thr_sc)
-        )
-
-        print(f"Detecting subtitles in {'main' if not alt else 'alt'} clip")
-        self._output_to_devnull(ocr, True, lambda x, y: print("%d/%d [%.1f%%]" % (x, y, x / y * 100), end="\r"))
-
-        scene_changes = sorted(scene_changes)
-        txt_scenes = [(scene_changes[i], scene_changes[i + 1]) for i in range(0, len(scene_changes) - 1, 2)][1::2]
-
-        print("\nWriting image files")
-
-        clip = core.std.Invert(clip).resize.Bicubic(format=vs.RGB24, matrix_in=1)
-
-        for (start_f, end_f) in txt_scenes:
-            path = f"{os.getcwd()}/filtered_images/{start_f}_{end_f}{'_alt' if alt else ''}_%01d_ocr.png"
-
-            with clip.get_frame(start_f) as f:
-                f_array = np.dstack(f)
-                img = Image.fromarray(f_array, mode="RGB")
-                img.save(path)
-
-
     @property
     def preview_coords(self) -> vs.VideoNode:
         """Preview of the OCR zone(s)"""
@@ -276,12 +290,12 @@ class OCR():
         """Preview of the cropped input"""
 
         if not self.coords_alt:
-            return self._crop(self.clip, self.coords)
+            return core.std.Crop(self.clip, *self.coords)
         else:
-            top = self._crop(self.clip, self.coords_alt)
-            bottom = self._crop(self.clip, self.coords)
+            top = core.std.Crop(self.clip, *self.coords_alt)
+            bottom = core.std.Crop(self.clip, *self.coords)
 
-            diff = (int((top.width - bottom.width) / 2), int((top.width - bottom.width) / 2))
+            diff = tuple([int((top.width - bottom.width) / 2)] * 2)
 
             if top.width > bottom.width:
                 bottom = bottom.std.AddBorders(*diff)
@@ -304,26 +318,12 @@ class OCR():
 
         :return:            Mask of the zone.
         """
-
         left, right, top, bottom = coords
 
-        return self._crop(
-            core.std.BlankClip(self.clip, color=[self._scale_values(255, self.clip.format.bits_per_sample)] * self.clip.format.num_planes),
-            coords
+        return core.std.Crop(
+            core.std.BlankClip(self.clip, color=self._scale_values(255, self.clip.format.bits_per_sample)),
+            *coords
         ).std.AddBorders(left, right, top, bottom)
-
-
-    @staticmethod
-    def _crop(clip: vs.VideoNode, coords: Tuple[int, int, int, int]) -> vs.VideoNode:
-        """Crop a clip to the input coords
-
-        :param coords:      Amount of pixel to crop for each side.
-
-        :return:            Cropped clip.
-        """
-
-        left, right, top, bottom = coords
-        return clip.std.Crop(left, right, top, bottom)
 
 
     @staticmethod
@@ -336,38 +336,31 @@ class OCR():
         """
 
         width, height, offset = coords
+        side_crop = int((clip.width - width) / 2)
+        top_crop = int(clip.height - height - offset)
+        bottom_crop = int(offset)
+
+        if alt:
+            top_crop, bottom_crop = bottom_crop, top_crop
+
         return (
-            int((clip.width - width) / 2),
-            int((clip.width - width) / 2),
-            int(clip.height - height - offset) if not alt else int(offset),
-            int(offset) if not alt else (clip.height - height - offset)
+            side_crop,
+            side_crop,
+            top_crop,
+            bottom_crop
         )
 
 
     @staticmethod
-    def _scale_values(n: int, bitdepth: int, src_bitdepth: int = 8) -> int:
-        """Scale a value to the correct bitdepth
+    def _scale_values(n: int, target_bitdepth: int, src_bitdepth: int = 8) -> int:
+        """Scale a value to the correct bitdepth. Doesn't work with float values.
 
         :param n:           value to scale
         :param bitdepth:    bitdepth to scale the value to
 
         :return:            scaled value
         """
-        return n << (bitdepth - src_bitdepth)
-
-
-    @staticmethod
-    def _output_to_devnull(clip: vs.VideoNode, y4m: bool, progress_update: Optional[Callable[[int, int], None]] = None) -> None:
-        """Output a clip to devnull.
-
-        :param clip:                Clip to output.
-
-        :param y4m:                 Output in y4m.
-
-        :param progress_update:     Progress updage function.
-        """
-        with open(os.devnull, "wb") as devnull:
-            clip.output(devnull, y4m, progress_update)
+        return n << (target_bitdepth - src_bitdepth)
 
 
     @staticmethod
