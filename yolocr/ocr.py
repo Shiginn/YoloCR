@@ -19,7 +19,7 @@ from pytimeconv import Convert
 core = vs.core
 
 
-class OCR():
+class YoloCR():
     """OCR Class"""
 
     def __init__(

@@ -1,6 +1,7 @@
 __pycache__
 .vspreview
 .mypy_cache
+build
 
 filtered_images
 
