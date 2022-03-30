@@ -2,6 +2,7 @@ __pycache__
 .vspreview
 .mypy_cache
 build
+test
 
 filtered_images
 

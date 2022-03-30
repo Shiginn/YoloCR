@@ -74,8 +74,8 @@ class YoloCR():
         if self.clip.format.num_planes > 1:
             self.clip, *_ = core.std.SplitPlanes(self.clip)  # type: ignore
 
-        self.thr_in = self._scale_values(thr_in, self.clip.format.bits_per_sample)
-        self.thr_out = self._scale_values(thr_out, self.clip.format.bits_per_sample)
+        self.thr_in = self._scale_values(thr_in, self.clip.format.bits_per_sample)  # type: ignore[union-attr]
+        self.thr_out = self._scale_values(thr_out, self.clip.format.bits_per_sample)  # type: ignore[union-attr]
 
         self.thr_sc_offset = thr_sc_offset
 
@@ -142,6 +142,8 @@ class YoloCR():
 
         :returns:           Cleaned clip.
         """
+        assert clip.format
+
         bnz_in = core.std.Binarize(clip, self.thr_in)
         bnz_out = core.std.Binarize(clip, self.thr_out)
 
@@ -327,7 +329,7 @@ class YoloCR():
         left, right, top, bottom = coords
 
         return core.std.Crop(
-            core.std.BlankClip(self.clip, color=self._scale_values(255, self.clip.format.bits_per_sample)),
+            core.std.BlankClip(self.clip, color=self._scale_values(255, self.clip.format.bits_per_sample)),  # type: ignore[union-attr]
             *coords
         ).std.AddBorders(left, right, top, bottom)
 
