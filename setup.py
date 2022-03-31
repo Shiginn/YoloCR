@@ -14,7 +14,18 @@ setup(
     author="Shigin",
     author_email="shigin.contact@gmail.com",
     description="OCR toolkit based on VapourSynth and Tesseract",
+
     packages=["yolocr"],
+    package_data={
+        "yolocr": ['py.typed'],
+    },
+
     install_requires=req,
     python_requires='>=3.9',
+
+    entry_points={
+        'console_scripts': [
+            'yolocr = yolocr.main:main'
+        ]
+    }
 )

@@ -24,7 +24,7 @@ class YoloCR():
 
     def __init__(
         self,
-        clip_hardsub: vs.VideoNode,
+        clip_hardsub: vs.VideoNode, /, *,
         coords: Tuple[int, int, int],
         coords_alt: Optional[Tuple[int, int, int]] = None,
         thr_in: int = 220,
@@ -105,7 +105,7 @@ class YoloCR():
             )
 
 
-    def write_subs(self, lang: str) -> None:
+    def write_subs(self, lang: str, output_file: str = "subs.ass") -> None:
         """Write the ASS file from the extracted frames
 
         :param lang:        Language of the input subtitles.
@@ -130,7 +130,7 @@ class YoloCR():
 
         print("Writing ASS file...")
 
-        with open("subs.ass", "w", encoding="utf8") as sub_file:
+        with open(output_file, "w", encoding="utf8") as sub_file:
             sub_file.write(self._get_sub_headers(self.clip.width, self.clip.height))
             sub_file.write("\n".join(sorted(lines)))
 
