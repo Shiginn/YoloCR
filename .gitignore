@@ -2,6 +2,8 @@ __pycache__
 .vspreview
 .mypy_cache
 build
+dist
+*.egg-info
 test
 
 filtered_images
@@ -9,6 +11,7 @@ filtered_images
 *.mkv
 *.ass
 *.ffindex
+*.lwi
 
 YoloCR.sh
 test.py
