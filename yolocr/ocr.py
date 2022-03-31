@@ -108,7 +108,8 @@ class YoloCR():
     def write_subs(self, lang: str, output_file: str = "subs.ass") -> None:
         """Write the ASS file from the extracted frames
 
-        :param lang:        Language of the input subtitles.
+        :param lang:            Language of the input subtitles.
+        :param output_file:     Path of the output subtitles.
         """
 
         if lang not in pytesseract.get_languages():
