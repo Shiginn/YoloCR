@@ -9,7 +9,7 @@ from .ocr import YoloCR
 core = vs.core
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="OCR toolkit based on VapourSynth and Tesseract")
 
     parser.add_argument(
