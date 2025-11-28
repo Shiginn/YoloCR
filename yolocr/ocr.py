@@ -178,8 +178,15 @@ class YoloCR:
 
         left, right, top, bottom = coords
 
+        if self.clip.format.color_family == vs.GRAY:
+            color = scale_value(255, 8, self.clip.format.bits_per_sample)
+        else:
+            color = [scale_value(255, 8, self.clip.format.bits_per_sample)] + [
+                scale_value(128, 8, self.clip.format.bits_per_sample)
+            ] * 2
+
         return core.std.Crop(
-            core.std.BlankClip(self.clip, color=scale_value(255, 8, self.clip.format.bits_per_sample)),
+            core.std.BlankClip(self.clip, color=color),
             *coords,
         ).std.AddBorders(left, right, top, bottom)
 
