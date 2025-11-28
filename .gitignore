@@ -4,14 +4,17 @@ __pycache__
 build
 dist
 *.egg-info
-test
 
+test
 filtered_images
 
 *.mkv
 *.ass
+*.sup
 *.ffindex
 *.lwi
+*.engine
+*.engine.cache
 
 YoloCR.sh
 test.py
