@@ -29,7 +29,6 @@ class UnetCleaner(AbstractCleaner):
         assert clip.format
 
         model_path = Path(__file__).parent / "../models" / self.model.value
-        print(model_path.resolve())
         clip_float = clip.resize.Bicubic(format=vs.GRAYS)
         mask = inference(clip_float, model_path.resolve(), backend=self.backend)
 
