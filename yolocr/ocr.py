@@ -4,7 +4,7 @@ from shutil import rmtree
 
 import numpy as np
 from PIL import Image
-from vstools import core, scale_value, vs, clip_async_render
+from vstools import clip_async_render, core, scale_value, vs
 
 from .cleaning.abstract import AbstractCleaner
 from .types import CropCoords, InputCoords
@@ -165,7 +165,7 @@ class YoloCR:
     @property
     def _preview_clean(self) -> vs.VideoNode:
         """Preview of the clean OCR output"""
-        return self._cleaning_unet(self.clip_crop)
+        return self.cleaner.clean(self.clip_crop)
 
     def _zone_mask(self, coords: CropCoords) -> vs.VideoNode:
         """Generates rectangular mask of the zone to OCR
