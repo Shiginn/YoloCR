@@ -4,7 +4,7 @@ from shutil import rmtree
 
 import numpy as np
 from PIL import Image
-from vstools import core, scale_value, vs
+from vstools import core, scale_value, vs, clip_async_render
 
 from .cleaning.abstract import AbstractCleaner
 from .types import CropCoords, InputCoords
@@ -111,11 +111,7 @@ class YoloCR:
             return clip
 
         ocr = core.std.FrameEval(clip, partial(_get_frame_ranges, clip=clip), prop_src=clip.misc.SCDetect(0.0035))
-
-        print(f"Finding subtitles in {'main' if not alt else 'alt'} clip...")
-
-        with open(os.devnull, "wb") as devnull:
-            ocr.output(devnull, progress_update=lambda x, y: print("%d/%d [%.1f%%]" % (x, y, x / y * 100), end="\r"))
+        clip_async_render(ocr, progress=f"Extracting {'bottom' if not alt else 'top'} subtitles...")
 
         return scene_changes
 
