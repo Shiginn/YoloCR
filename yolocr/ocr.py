@@ -163,7 +163,7 @@ class YoloCR:
             return core.std.StackVertical([top, bottom])
 
     @property
-    def _preview_clean(self) -> vs.VideoNode:
+    def clip_clean(self) -> vs.VideoNode:
         """Preview of the clean OCR output"""
         return self.cleaner._clean(self.clip_crop)
 
