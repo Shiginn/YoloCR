@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 from vstools import clip_async_render, core, scale_value, vs
 
-from .cleaning.abstract import AbstractCleaner
+from .cleaning.base import BaseCleaner
 from .types import CropCoords, InputCoords
 
 __all__ = ["YoloCR"]
@@ -16,7 +16,7 @@ class YoloCR:
     """OCR Class"""
 
     clip: vs.VideoNode
-    cleaner: AbstractCleaner
+    cleaner: BaseCleaner
 
     coords: CropCoords
     coords_alt: CropCoords | None
@@ -24,7 +24,7 @@ class YoloCR:
     def __init__(
         self,
         clip_hardsub: vs.VideoNode,
-        cleaner: AbstractCleaner,
+        cleaner: BaseCleaner,
         coords: InputCoords,
         coords_alt: InputCoords | bool = True,
     ) -> None:
@@ -165,7 +165,7 @@ class YoloCR:
     @property
     def _preview_clean(self) -> vs.VideoNode:
         """Preview of the clean OCR output"""
-        return self.cleaner.clean(self.clip_crop)
+        return self.cleaner._clean(self.clip_crop)
 
     def _zone_mask(self, coords: CropCoords) -> vs.VideoNode:
         """Generates rectangular mask of the zone to OCR

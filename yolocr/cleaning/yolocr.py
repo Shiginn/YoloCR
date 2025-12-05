@@ -1,9 +1,9 @@
 from vstools import core, scale_value, vs
 
-from .abstract import AbstractCleaner
+from .base import BaseCleaner
 
 
-class YoloCRCleaner(AbstractCleaner):
+class YoloCRCleaner(BaseCleaner):
     thr_in: int
     thr_out: int
     rect_size: int
@@ -49,7 +49,7 @@ class YoloCRCleaner(AbstractCleaner):
 
         super().__init__()
 
-    def clean(self, clip: vs.VideoNode):
+    def _clean(self, clip: vs.VideoNode):
         assert clip.format
 
         bnz_in = core.std.Binarize(clip, self.thr_in)
