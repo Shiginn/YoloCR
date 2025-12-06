@@ -7,12 +7,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: read
-
-env:
-  PYTHON_VERSION: 3.14
-
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -35,8 +29,8 @@ jobs:
         run: uv sync --locked --all-extras --no-install-package vapoursynth
 
       - name: Run Ruff check
-        run: uv run --no-sync ruff check yolocr
-        run: uv run --no-sync ruff format --check --diff yolocr
+        run: uv run --no-sync ruff check pocr
+        run: uv run --no-sync ruff format --check --diff pocr
 
       - name: Running mypy
-        run: uv run --no-sync mypy yolocr
+        run: uv run --no-sync mypy pocr
