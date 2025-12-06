@@ -1,7 +1,8 @@
 from enum import Enum
 from pathlib import Path
 
-from vsmlrt import backendT as Backend, inference
+from vsmlrt import backendT as Backend
+from vsmlrt import inference
 from vsscale import autoselect_backend
 from vstools import core, vs
 

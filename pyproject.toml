@@ -7,12 +7,7 @@ requires-python = ">=3.12"
 dependencies = ["numpy>=2.3.5", "pillow>=12.0.0", "pytimeconv>=0.0.2", "vsjetpack>=1.0.0"]
 
 [dependency-groups]
-dev = [
-    "mypy==1.19",
- "mypy-extensions==1.1.0",
- "ruff==0.9.4",
- "typing-extensions==4.15.0",
-]
+dev = ["mypy==1.19", "mypy-extensions==1.1.0", "ruff==0.9.4", "typing-extensions==4.15.0"]
 
 [tool.mypy]
 mypy_path = "./stubs"
