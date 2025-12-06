@@ -1,0 +1,42 @@
+name: Lint Python code with Ruff & mypy
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: 3.14
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --no-install-package vapoursynth
+
+      - name: Run Ruff check
+        run: uv run --no-sync ruff check yolocr
+        run: uv run --no-sync ruff format --check --diff yolocr
+
+      - name: Running mypy
+        run: uv run --no-sync mypy yolocr
