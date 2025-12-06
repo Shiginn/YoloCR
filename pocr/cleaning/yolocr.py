@@ -49,7 +49,7 @@ class YoloCRCleaner(BaseCleaner):
 
         super().__init__()
 
-    def _clean(self, clip: vs.VideoNode):
+    def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
         assert clip.format
 
         bnz_in = core.std.Binarize(clip, self.thr_in)

@@ -10,7 +10,7 @@ class BaseCleaner(ABC):
     postprocess_func: Callable[[vs.VideoNode], vs.VideoNode] | None = None
 
     @abstractmethod
-    def _clean(self, clip: vs.VideoNode):
+    def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
         pass
 
     def with_postprocess(self, func: Callable[[vs.VideoNode], vs.VideoNode]) -> Self:
@@ -23,7 +23,7 @@ class BaseCleaner(ABC):
         self.postprocess_func = func
         return self
 
-    def run(self, clip: vs.VideoNode):
+    def run(self, clip: vs.VideoNode) -> vs.VideoNode:
         """Cleans the provided clip using the cleaner's algorithm.
 
         :param clip:        Clip to clean.

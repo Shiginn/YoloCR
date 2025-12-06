@@ -5,7 +5,7 @@ from shutil import rmtree
 
 import numpy as np
 from PIL import Image
-from vstools import clip_async_render, core, scale_value, vs
+from vstools import clip_async_render, core, get_prop, scale_value, vs
 
 from .cleaning.base import BaseCleaner
 from .pgs import convert_frame_data, convert_images_data
@@ -54,9 +54,9 @@ class pOCR:
         self.cleaner = cleaner
 
         self.coords = self._convert_coords(self.clip, coords)
-        if coords_alt:
+        if coords_alt is True:
             coords_alt = coords
-        self.coords_alt = self._convert_coords(self.clip, coords_alt, True) if coords_alt else None
+        self.coords_alt = self._convert_coords(self.clip, coords_alt, True) if coords_alt is not False else None
 
         self.images = []
 
@@ -128,10 +128,10 @@ class pOCR:
             nonlocal curr_start_scene
             nonlocal scene_changes
 
-            scene_start = f.props["_SceneChangePrev"] == 1
-            scene_end = f.props["_SceneChangeNext"] == 1
+            scene_start = get_prop(f, "_SceneChangePrev", int) == 1
+            scene_end = get_prop(f, "_SceneChangeNext", int) == 1
 
-            has_text = f.props["PlaneStatsMax"] > 130 and f.props["PlaneStatsAverage"] > 0.0035
+            has_text = get_prop(f, "PlaneStatsMax", int) > 130 and get_prop(f, "PlaneStatsAverage", float) > 0.0035
 
             # one frame subtitle is almost certainly false positive
             if scene_start and scene_changes == 1:
@@ -218,6 +218,7 @@ class pOCR:
 
         left, right, top, bottom = coords
 
+        color: float | list[float]
         if self.clip.format.color_family == vs.GRAY:
             color = scale_value(255, 8, self.clip.format.bits_per_sample)
         else:
