@@ -11,10 +11,10 @@ from .cleaning.base import BaseCleaner
 from .pgs import convert_frame_data, convert_images_data
 from .types import CropCoords, ImageData, InputCoords
 
-__all__ = ["YoloCR"]
+__all__ = ["pOCR"]
 
 
-class YoloCR:
+class pOCR:
     """OCR Class"""
 
     clip: vs.VideoNode
