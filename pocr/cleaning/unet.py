@@ -1,12 +1,14 @@
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from vsmlrt import backendT as Backend
-from vsmlrt import inference
 from vsscale import autoselect_backend
 from vstools import core, vs
 
 from .base import BaseCleaner
+
+if TYPE_CHECKING:
+    from vsmlrt import backendT as Backend
 
 
 class UnetModel(Enum):
@@ -37,6 +39,8 @@ class UnetCleaner(BaseCleaner):
         self.backend = backend if backend is not None else autoselect_backend(fp16=True)
 
     def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
+        from vsmlrt import inference
+
         assert clip.format
 
         clip_float = clip.resize.Bicubic(format=vs.GRAYS)
