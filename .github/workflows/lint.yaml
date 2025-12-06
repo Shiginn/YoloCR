@@ -29,8 +29,9 @@ jobs:
         run: uv sync --locked --all-extras --no-install-package vapoursynth
 
       - name: Run Ruff check
-        run: uv run --no-sync ruff check pocr
-        run: uv run --no-sync ruff format --check --diff pocr
+        run: |
+          uv run --no-sync ruff check pocr
+          uv run --no-sync ruff format --check --diff pocr
 
       - name: Running mypy
         run: uv run --no-sync mypy pocr
