@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from vsscale import autoselect_backend
 from vstools import core, vs
@@ -9,6 +9,8 @@ from .base import BaseCleaner
 
 if TYPE_CHECKING:
     from vsmlrt import backendT as Backend
+else:
+    Backend = Any
 
 
 class UnetModel(Enum):
