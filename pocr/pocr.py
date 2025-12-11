@@ -1,4 +1,3 @@
-import os
 from functools import partial
 from pathlib import Path
 from shutil import rmtree
@@ -80,16 +79,14 @@ class pOCR:
     def to_disk(self, output_dir: str | Path) -> None:
         """Save extracted images to disk
 
-        :param output_dir:  Directory to save images to.
+        :param output_dir:      Directory to save images to. The content of the directory will be deleted if it already
+                                exists.
         """
-        try:
-            os.mkdir("filtered_images")
-        except FileExistsError:
-            rmtree("filtered_images")
-            os.mkdir("filtered_images")
-
         if isinstance(output_dir, str):
             output_dir = Path(output_dir)
+
+        if output_dir.exists():
+            rmtree(output_dir)
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
