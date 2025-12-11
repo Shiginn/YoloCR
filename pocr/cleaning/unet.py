@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vsscale import autoselect_backend
-from vstools import core, vs
+from vstools import core, padder_ctx, vs
 
 from .base import BaseCleaner
 
@@ -45,7 +45,8 @@ class UnetCleaner(BaseCleaner):
 
         assert clip.format
 
-        clip_float = clip.resize.Bicubic(format=vs.GRAYS)
-        mask = inference(clip_float, str(self.model.resolve()), backend=self.backend)
+        with padder_ctx(16) as padder:
+            clip_pad = padder.REPEAT(clip.resize.Bicubic(format=vs.GRAYS))
+            mask = inference(clip_pad, str(self.model.resolve()), backend=self.backend)
 
-        return core.std.Expr([clip_float, mask], "y 0.5 > x 0 ?").resize.Bicubic(format=vs.RGB24)
+        return core.std.Expr([clip_pad, mask], "y 0.5 > x 0 ?").resize.Bicubic(format=vs.RGB24)
