@@ -1,77 +1,43 @@
+from vsmasktools import Morpho
 from vstools import core, scale_value, vs
 
 from .base import BaseCleaner
 
 
 class YoloCRCleaner(BaseCleaner):
-    thr_in: int
-    thr_out: int
-    rect_size: int
-    # thr_sc_offset: float = 0,
+    thr_fill: int
+    thr_border: int
+    expand_iter: int
 
-    def __init__(self, thr_in: int = 220, thr_out: int = 70, rect_size: int = 3):
+    def __init__(self, thr_fill: int = 220, thr_border: int = 70, expand_iter: int = 2) -> None:
         """
-        :param thr_in:              Binarization threshold of the subtitle inline. Higher means less errors but
+        :param thr_in:              Binarization threshold of the subtitle fill. Higher means less errors but
                                     text might not be detected. Should not be higher than subtitle text luminosity.
                                     Defaults to 220 and ranges from 0 to 255 (will be scaled if clip is not 8-bits)
 
-        :param thr_out:             Binarization threshold of the subtitle outline. Lower means more errors will be
+        :param thr_out:             Binarization threshold of the subtitle border. Lower means more errors will be
                                     removed but text might be detected as error. Should not be lower than subtitle
-                                    outline luminosity. Defaults to 70 and ranges from 0 to 255 (will be scaled if
+                                    border luminosity. Defaults to 70 and ranges from 0 to 255 (will be scaled if
                                     clip is not 8-bits)
 
-        :param thr_sc_offset:       Offset the threshold of the subtitle timing detection. This threshold is determined
-                                    based on detection box size and can be offset with this setting. Lower means more
-                                    subtitles will be detected but might cause false positive. Defaults threshold is
-                                    0.0035 when detection box is 1500x200 and goes down as detection box size
-                                    increases. Threshold is between 0 and 1.
-
-        :param rect_size:           Size of the rectangle used to detect cleaning errors. Higher means more errors
-                                    will be removed but might detect text as error. Defaults to 8.
+        :param expand_iter:         Number of iterations for the expansion of the subtitle fill mask. Lower values will
+                                    catch more errors but might remove parts of the subtitle. Defaults to 2.
         """
-
-        self.thr_in = thr_in
-        self.thr_out = thr_out
-        self.rect_size = rect_size
-
-        # if not (isinstance(thr_in, int) and isinstance(thr_out, int)):
-        #     raise ValueError("Binarization threshold must be integers.")
-
-        # if self.clip.format.num_planes > 1:
-        #     self.clip, *_ = core.std.SplitPlanes(self.clip)  # type: ignore
-
-        # self.thr_in = self._scale_values(thr_in, self.clip.format.bits_per_sample)  # type: ignore[union-attr]
-        # self.thr_out = self._scale_values(thr_out, self.clip.format.bits_per_sample)  # type: ignore[union-attr]
-
-        # self.thr_sc_offset = thr_sc_offset
-
-        # self.rect_size = rect_size
-
         super().__init__()
 
-    def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
-        assert clip.format
+        self.thr_fill = thr_fill
+        self.thr_border = thr_border
+        self.expand_iter = expand_iter
 
-        bnz_in = core.std.Binarize(clip, self.thr_in)
-        bnz_out = core.std.Binarize(clip, self.thr_out)
+    def _clean(self, clip) -> vs.VideoNode:
+        bnz_fill = core.std.Binarize(clip=clip, threshold=scale_value(self.thr_fill, 8, clip.format))
+        bnz_border = core.std.Binarize(clip=clip, threshold=scale_value(self.thr_border, 8, clip.format))
 
-        blank_clip = core.std.BlankClip(
-            bnz_in, width=clip.width - self.rect_size * 2, height=clip.height - self.rect_size * 2, color=0
-        )
+        bnz_fill_expand = Morpho().expand(bnz_fill, sw=self.expand_iter)
 
-        rect = core.std.AddBorders(
-            blank_clip,
-            left=self.rect_size,
-            right=self.rect_size,
-            top=self.rect_size,
-            bottom=self.rect_size,
-            color=scale_value(255, 8, clip.format.bits_per_sample),
-        )
+        diff = core.std.Expr([bnz_border, bnz_fill_expand], expr="x y - 0 max")
+        diff_grow = core.misc.Hysteresis(diff, bnz_border)
 
-        overlap = core.std.Expr([rect, bnz_out], "x y min")
+        clean = core.std.Expr([bnz_fill, diff_grow], expr="x y - 0 max")
 
-        ocr_issues = core.misc.Hysteresis(overlap, bnz_out)
-
-        txt = core.std.MaskedMerge(bnz_in, core.std.BlankClip(bnz_in), ocr_issues)
-
-        return txt.std.Maximum().std.Minimum().std.Invert().std.PlaneStats()
+        return clean
