@@ -72,7 +72,7 @@ def toColorCode(colorcode: ColorValue, count: int) -> bytearray:
     return structure
 
 
-def to_sub_data(image: Image.Image, size: tuple[int, int]) -> tuple[bytes, int, int]:
+def to_sub_data(image: Image.Image, size: tuple[int, int]) -> tuple[bytearray, int, int]:
     data = bytearray()
     lastcolor: Literal[0, 1, 2] | None = None
 
@@ -91,7 +91,7 @@ def to_sub_data(image: Image.Image, size: tuple[int, int]) -> tuple[bytes, int, 
 
     # count pixel form left to right, top to bottom
     for pixel in iter(image.getdata()):
-        pixel = cast(tuple[int, int], pixel)
+        pixel = cast(tuple[int, int], pixel)  # pyright: ignore[reportInvalidCast]
         cycleColor = paletteCodeNumber(pixel)
 
         if lastcolor == cycleColor and linewidth_count < wid:
@@ -141,7 +141,6 @@ def generate_pcs(
     size: tuple[int, int],
     offset: int,
     ods_width: int,
-    ods_height: int,
     counter: int,
     composition_type: Literal[0x00, 0x80],
 ) -> bytearray:
@@ -233,7 +232,7 @@ def generate_pds(time: int, colors: list[bytes]) -> bytearray:
     return pds
 
 
-def generate_ods(time: int, data: bytes, ods_width: int, ods_height: int) -> bytearray:
+def generate_ods(time: int, data: bytearray, ods_width: int, ods_height: int) -> bytearray:
     ods = generate_header(time, PG_SEGMENT_TYPE["ODS"], 11 + len(data))
 
     # ODS - CONTENT
@@ -264,16 +263,16 @@ def generate_ods(time: int, data: bytes, ods_width: int, ods_height: int) -> byt
 
 def generate_frame(
     image: Image.Image, start_time: int, end_time: int, counter: int, size: tuple[int, int], offset: int
-) -> bytes:
+) -> bytearray:
     data, ods_width, ods_height = to_sub_data(image, size)
 
-    pcs = generate_pcs(start_time, size, offset, ods_width, ods_height, counter, 0x80)
+    pcs = generate_pcs(start_time, size, offset, ods_width, counter, 0x80)
     wds = generate_wds(start_time, size, ods_width, ods_height)
     pds = generate_pds(start_time, COLORS)
     ods = generate_ods(start_time, data, ods_width, ods_height)
     end = generate_header(start_time, PG_SEGMENT_TYPE["END"], 0)
 
-    end_pcs = generate_pcs(end_time, size, offset, ods_width, ods_height, counter + 1, 0x00)
+    end_pcs = generate_pcs(end_time, size, offset, ods_width, counter + 1, 0x00)
     end_wds = generate_wds(end_time, size, ods_width, ods_height)
     end_end = generate_header(0, PG_SEGMENT_TYPE["END"], 0)
 
@@ -282,6 +281,9 @@ def generate_frame(
 
 
 def convert_images_data(images: list[ImageData], bin_thr: int = 128) -> list[ImageData]:
+    def binzarizer(x: int) -> int:
+        return 255 if x > bin_thr else 0
+
     prepared_files: list[ImageData] = []
 
     for image_data in images:
@@ -301,14 +303,7 @@ def convert_images_data(images: list[ImageData], bin_thr: int = 128) -> list[Ima
             + (int(te[3]) * 90)
         )
 
-        prepared_files.append(
-            ImageData(
-                start_time,
-                end_time,
-                image_data.is_alt,
-                image_data.data.point(lambda x: 255 if x > bin_thr else 0),
-            )
-        )
+        prepared_files.append(ImageData(start_time, end_time, image_data.is_alt, image_data.data.point(binzarizer)))
 
     prepared_files.sort(key=lambda x: x.start)
     return prepared_files
@@ -316,7 +311,7 @@ def convert_images_data(images: list[ImageData], bin_thr: int = 128) -> list[Ima
 
 def convert_frame_data(
     prepared_data: list[ImageData], frame_size: tuple[int, int], sub_offsets: tuple[int, int]
-) -> bytes:
+) -> bytearray:
     sub = bytearray()
 
     for i, data in enumerate(prepared_data):

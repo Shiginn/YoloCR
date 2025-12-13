@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from vsscale import autoselect_backend
 from vstools import padder_ctx, vs
@@ -40,6 +40,7 @@ class UnetCleaner(BaseCleaner):
         self.model = model
         self.backend = backend if backend is not None else autoselect_backend(fp16=True)
 
+    @override
     def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
         from vsmlrt import inference
 

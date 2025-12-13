@@ -4,7 +4,14 @@ from shutil import rmtree
 
 import numpy as np
 from PIL import Image
-from vstools import clip_async_render, core, get_prop, scale_value, vs
+from vstools import (
+    clip_async_render,
+    core,
+    get_prop,  # pyright: ignore[reportUnknownVariableType]
+    get_y,
+    scale_value,
+    vs,
+)
 
 from .cleaning.base import BaseCleaner
 from .pgs import convert_frame_data, convert_images_data
@@ -46,12 +53,13 @@ class pOCR:
         """
         self.clip = clip_hardsub.resize.Bicubic(format=vs.YUV420P8)
 
-        if self.clip.format is None:
+        if clip_hardsub.format.id == vs.NONE:
             raise ValueError("Variable format clip are not supported.")
 
-        if self.clip.format.color_family not in [vs.GRAY, vs.YUV]:
+        if clip_hardsub.format.color_family not in [vs.GRAY, vs.YUV]:
             raise ValueError("Input clip must be GRAY or YUV.")
 
+        self.clip = get_y(clip_hardsub)
         self.cleaner = cleaner
 
         self.coords = self._convert_coords(self.clip, coords)
@@ -135,7 +143,7 @@ class pOCR:
             has_text = get_prop(f, "PlaneStatsMax", int) > 130 and get_prop(f, "PlaneStatsAverage", float) > 0.0035
 
             # one frame subtitle is almost certainly false positive
-            if scene_start and scene_changes == 1:
+            if scene_start and scene_end:
                 return clip
 
             if (scene_start or n == 0) and has_text:
@@ -176,7 +184,7 @@ class pOCR:
     @property
     def clip_coords(self) -> vs.VideoNode:
         """Preview of the OCR zone(s)"""
-        base = self.clip.std.Lut(0, function=lambda x: int(x / 2))
+        base = self.clip.std.Expr("x 2 /")
 
         preview = core.std.MaskedMerge(base, self.clip, self._zone_mask(self.coords))
         if self.coords_alt:

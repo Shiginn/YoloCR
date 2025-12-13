@@ -33,5 +33,8 @@ jobs:
           uv run --no-sync ruff check pocr
           uv run --no-sync ruff format --check --diff pocr
 
+      - name: Run basedpyright
+        run: uv run --no-sync basedpyright --warnings pocr
+
       - name: Running mypy
         run: uv run --no-sync mypy pocr

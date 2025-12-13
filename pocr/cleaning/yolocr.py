@@ -1,3 +1,5 @@
+from typing import override
+
 from vsmasktools import Morpho
 from vstools import core, scale_value, vs
 
@@ -29,6 +31,7 @@ class YoloCRCleaner(BaseCleaner):
         self.thr_border = thr_border
         self.expand_iter = expand_iter
 
+    @override
     def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
         def scale_thr(thr: int | float) -> float:
             return scale_value(float(thr), 8, clip.format, vs.RANGE_FULL, vs.RANGE_FULL)
