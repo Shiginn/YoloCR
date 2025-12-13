@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Self
 
-from vstools import vs
+from vstools import core, vs
 
 
 class BaseCleaner(ABC):
@@ -23,12 +23,20 @@ class BaseCleaner(ABC):
         self.postprocess_func = func
         return self
 
-    def run(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def run(self, clip: vs.VideoNode, show_mask: bool = False) -> vs.VideoNode:
         """Cleans the provided clip using the cleaner's algorithm.
 
         :param clip:        Clip to clean.
+        :param show_mask:   If true, returns the mask instead of the cleaned clip. Defaults to False.
 
         :return:            Cleaned clip.
         """
-        cleaned = self._clean(clip)
-        return self.postprocess_func(cleaned) if self.postprocess_func else cleaned
+        subs_mask = self._clean(clip)
+        if self.postprocess_func:
+            subs_mask = self.postprocess_func(subs_mask)
+
+        if show_mask:
+            return subs_mask
+
+        blank = core.std.BlankClip(clip)
+        return core.std.MaskedMerge(blank, clip, subs_mask)
