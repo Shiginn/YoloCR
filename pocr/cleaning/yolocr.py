@@ -31,16 +31,16 @@ class YoloCRCleaner(BaseCleaner):
 
     def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
         def scale_thr(thr: int | float) -> float:
-            return scale_value(float(thr), 8, clip.format, range_in=0, range_out=0)
+            return scale_value(float(thr), 8, clip.format, vs.RANGE_FULL, vs.RANGE_FULL)
 
         bnz_fill = core.std.Binarize(clip, scale_thr(self.thr_fill))
         bnz_border = core.std.Binarize(clip, scale_thr(self.thr_border))
 
-        bnz_fill_expand = Morpho().expand(bnz_fill, sw=self.expand_iter)
+        bnz_fill_expand = Morpho().expand(bnz_fill, self.expand_iter)
 
-        diff = core.std.Expr([bnz_border, bnz_fill_expand], expr="x y - 0 max")
+        diff = core.std.Expr([bnz_border, bnz_fill_expand], "x y - 0 max")
         diff_grow = core.misc.Hysteresis(diff, bnz_border)
 
-        clean = core.std.Expr([bnz_fill, diff_grow], expr="x y - 0 max")
+        clean = core.std.Expr([bnz_fill, diff_grow], "x y - 0 max")
 
         return clean
