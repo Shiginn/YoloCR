@@ -341,8 +341,8 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "basedpyright", specifier = ">=1.36.1" },
-    { name = "hatchling", specifier = ">=1.28.0" },
+    { name = "basedpyright", specifier = "==1.36.1" },
+    { name = "hatchling", specifier = "==1.28.0" },
     { name = "mypy", specifier = "==1.19" },
     { name = "mypy-extensions", specifier = "==1.1.0" },
     { name = "ruff", specifier = "==0.9.4" },
