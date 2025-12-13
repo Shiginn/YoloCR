@@ -29,7 +29,7 @@ class YoloCRCleaner(BaseCleaner):
         self.thr_border = thr_border
         self.expand_iter = expand_iter
 
-    def _clean(self, clip) -> vs.VideoNode:
+    def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
         bnz_fill = core.std.Binarize(clip=clip, threshold=scale_value(self.thr_fill, 8, clip.format))
         bnz_border = core.std.Binarize(clip=clip, threshold=scale_value(self.thr_border, 8, clip.format))
 
