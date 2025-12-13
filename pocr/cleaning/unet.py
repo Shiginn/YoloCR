@@ -46,7 +46,12 @@ class UnetCleaner(BaseCleaner):
         assert clip.format
 
         with padder_ctx(16) as padder:
-            clip_pad = padder.REPEAT(clip.resize.Bicubic(format=vs.GRAYS))
+            if getattr(self.backend, "fp16", False):
+                clip_float = clip.resize.Bicubic(format=vs.GRAYH)
+            else:
+                clip_float = clip.resize.Bicubic(format=vs.GRAYS)
+            clip_pad = padder.REPEAT(clip_float)
             mask = inference(clip_pad, str(self.model.resolve()), backend=self.backend)
+            mask = padder.CROP(mask)
 
-        return core.std.Expr([clip_pad, mask], "y 0.5 > x 0 ?").resize.Bicubic(format=vs.RGB24)
+        return mask.resize.Bicubic(format=clip.format.id)
