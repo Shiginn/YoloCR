@@ -51,7 +51,6 @@ class pOCR:
                                     If set to True, will use the same coords as `coords. If set to False, disables top
                                     subtitle detection. Defaults to True.
         """
-        self.clip = clip_hardsub.resize.Bicubic(format=vs.YUV420P8)
 
         if clip_hardsub.format.id == vs.NONE:
             raise ValueError("Variable format clip are not supported.")
