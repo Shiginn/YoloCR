@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vsscale import autoselect_backend
-from vstools import core, padder_ctx, vs
+from vstools import padder_ctx, vs
 
 from .base import BaseCleaner
 
