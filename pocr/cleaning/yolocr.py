@@ -30,8 +30,11 @@ class YoloCRCleaner(BaseCleaner):
         self.expand_iter = expand_iter
 
     def _clean(self, clip: vs.VideoNode) -> vs.VideoNode:
-        bnz_fill = core.std.Binarize(clip=clip, threshold=scale_value(self.thr_fill, 8, clip.format))
-        bnz_border = core.std.Binarize(clip=clip, threshold=scale_value(self.thr_border, 8, clip.format))
+        def scale_thr(thr: int | float) -> float:
+            return scale_value(float(thr), 8, clip.format, range_in=0, range_out=0)
+
+        bnz_fill = core.std.Binarize(clip, scale_thr(self.thr_fill))
+        bnz_border = core.std.Binarize(clip, scale_thr(self.thr_border))
 
         bnz_fill_expand = Morpho().expand(bnz_fill, sw=self.expand_iter)
 
