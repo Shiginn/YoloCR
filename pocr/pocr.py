@@ -21,6 +21,7 @@ class pOCR:
 
     coords: CropCoords
     coords_alt: CropCoords | None
+    show_mask: bool
 
     images: list[ImageData]
 
@@ -30,6 +31,7 @@ class pOCR:
         cleaner: BaseCleaner,
         coords: InputCoords,
         coords_alt: InputCoords | bool = True,
+        show_mask: bool = False,
     ) -> None:
         """
         :param clip_hardsub:        Hardsubbed clip to OCR.
@@ -57,6 +59,8 @@ class pOCR:
             coords_alt = coords
         self.coords_alt = self._convert_coords(self.clip, coords_alt, True) if coords_alt is not False else None
 
+        self.show_mask = show_mask
+
         self.images = []
 
     def extract_frames(self) -> None:
@@ -67,12 +71,12 @@ class pOCR:
                                 pytesseract writes temporary image if it doesn't already exist on the disk.
                                 Defaults to False.
         """
-        clean_clip = self.cleaner.run(core.std.Crop(self.clip, *self.coords))
+        clean_clip = self.cleaner.run(core.std.Crop(self.clip, *self.coords), self.show_mask)
         frame_ranges = self._extract_scene_frame_ranges(clean_clip.std.PlaneStats())
         self.images += self._write_sub_frames(clean_clip, frame_ranges)
 
         if self.coords_alt:
-            clean_clip_alt = self.cleaner.run(core.std.Crop(self.clip, *self.coords_alt))
+            clean_clip_alt = self.cleaner.run(core.std.Crop(self.clip, *self.coords_alt), self.show_mask)
             frame_ranges_alt = self._extract_scene_frame_ranges(clean_clip_alt.std.PlaneStats(), alt=True)
             self.images += self._write_sub_frames(clean_clip_alt, frame_ranges_alt, alt=True)
 
@@ -202,7 +206,7 @@ class pOCR:
     @property
     def clip_clean(self) -> vs.VideoNode:
         """Preview of the clean OCR output"""
-        return self.cleaner.run(self.clip_crop)
+        return self.cleaner.run(self.clip_crop, self.show_mask)
 
     def _zone_mask(self, coords: CropCoords) -> vs.VideoNode:
         """Generates rectangular mask of the zone to OCR
